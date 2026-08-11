@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=800, height=600" />
+  <title>AI Consensus Engine</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div id="app">
+    <!-- ── Top Section ── -->
+    <section id="top-section">
+      <textarea id="user-prompt" placeholder="Enter your prompt for the AI debate panel…" rows="3"></textarea>
+
+      <details id="system-prompt-details">
+        <summary>System Prompt</summary>
+        <textarea id="system-prompt" rows="2" placeholder="Optional system instructions for all agents…"></textarea>
+      </details>
+
+      <div id="controls-row">
+        <div id="tone-group">
+          <label for="tone-slider">Tone</label>
+          <select id="tone-slider">
+            <option value="friendly">Friendly</option>
+            <option value="neutral" selected>Neutral</option>
+            <option value="brutal_roast">Brutal Roast</option>
+          </select>
+        </div>
+
+        <div id="telegram-group">
+          <input id="tg-token" type="text" placeholder="Telegram Bot Token" />
+          <input id="tg-chat" type="text" placeholder="Chat ID" />
+        </div>
+
+        <div id="theme-group">
+          <label for="theme-select">Theme</label>
+          <select id="theme-select">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="adaptive">Adaptive</option>
+          </select>
+        </div>
+      </div>
+
+      <div id="action-row">
+        <button id="btn-start">🧠 Start Debate</button>
+        <button id="btn-abort" disabled>✋ Abort</button>
+        <span id="timer-display">00:00 / 45s</span>
+      </div>
+    </section>
+
+    <!-- ── Middle Section – Stacked Bar Chart ── -->
+    <section id="chart-section">
+      <svg id="stacked-chart" viewBox="0 0 760 220" preserveAspectRatio="xMidYMid meet"></svg>
+    </section>
+
+    <!-- ── Bottom Section – Agent Status Row ── -->
+    <section id="agents-section">
+      <div id="agent-row">
+        <!-- ChatGPT -->
+        <div class="agent-card" data-agent="chatgpt">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#10a37f" />
+              <text x="24" y="28" font-size="10" fill="white" text-anchor="middle" font-weight="bold">GPT</text>
+            </svg>
+          </div>
+          <span class="agent-label">ChatGPT</span>
+        </div>
+        <!-- Claude -->
+        <div class="agent-card" data-agent="claude">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#d97706" />
+              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">CLD</text>
+            </svg>
+          </div>
+          <span class="agent-label">Claude</span>
+        </div>
+        <!-- Gemini -->
+        <div class="agent-card" data-agent="gemini">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#4285f4" />
+              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">GEM</text>
+            </svg>
+          </div>
+          <span class="agent-label">Gemini</span>
+        </div>
+        <!-- OpenRouter -->
+        <div class="agent-card" data-agent="openrouter">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#6366f1" />
+              <text x="24" y="28" font-size="8" fill="white" text-anchor="middle" font-weight="bold">OR</text>
+            </svg>
+          </div>
+          <span class="agent-label">OpenRouter</span>
+        </div>
+        <!-- Cloudflare -->
+        <div class="agent-card" data-agent="cloudflare">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#f38020" />
+              <text x="24" y="28" font-size="8" fill="white" text-anchor="middle" font-weight="bold">CF</text>
+            </svg>
+          </div>
+          <span class="agent-label">Cloudflare</span>
+        </div>
+        <!-- Nvidia NIM -->
+        <div class="agent-card" data-agent="nvidia">
+          <div class="agent-ring">
+            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
+              <circle cx="24" cy="24" r="20" fill="#76b900" />
+              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">NV</text>
+            </svg>
+          </div>
+          <span class="agent-label">Nvidia NIM</span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

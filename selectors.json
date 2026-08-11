@@ -1,0 +1,33 @@
+{
+  "chatgpt": {
+    "input": "div[id='prompt-textarea']",
+    "submit": "button[data-testid='send-button']",
+    "output": "div[data-message-author-role='assistant']",
+    "wait_selector": "button[data-testid='stop-button']",
+    "observer_target": "div[class*='conversation']",
+    "timeout_ms": 45000
+  },
+  "claude": {
+    "input": "div[contenteditable='true']",
+    "submit": "button[aria-label='Send Message']",
+    "output": "div.font-claude-message",
+    "wait_selector": "div.is-generating",
+    "observer_target": "main",
+    "timeout_ms": 45000
+  },
+  "gemini": {
+    "input": "div[role='textbox']",
+    "submit": "button[aria-label='Send message']",
+    "output": "div.message-content",
+    "wait_selector": "mat-progress-bar",
+    "observer_target": "div[class*='response-container']",
+    "timeout_ms": 45000
+  },
+  "bridge": {
+    "ws_url": "ws://127.0.0.1:8765",
+    "http_url": "http://127.0.0.1:3000",
+    "reconnect_interval_ms": 3000
+  },
+  "remote_fetch_url": "https://raw.githubusercontent.com/hivemind-ai/consensus-engine/main/selectors.json",
+  "round_colors": ["#FF8C00", "#FF69B4", "#9370DB"]
+}

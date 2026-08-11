@@ -1,0 +1,110 @@
+/* ── ChatGPT Content Script ── */
+
+let lastResponse = '';
+let isGenerating = false;
+let observer = null;
+
+function getElement(sel) {
+  return document.querySelector(sel);
+}
+
+function getAllElements(sel) {
+  return Array.from(document.querySelectorAll(sel));
+}
+
+function setInput(text, sel) {
+  const el = getElement(sel);
+  if (!el) return false;
+  el.focus();
+  // Use execCommand for compatibility
+  document.execCommand('insertText', false, text);
+  return true;
+}
+
+function clickSubmit(sel) {
+  const btn = getElement(sel);
+  if (btn) {
+    btn.click();
+    return true;
+  }
+  return false;
+}
+
+function getLatestResponse(sel) {
+  const els = getAllElements(sel);
+  if (!els.length) return '';
+  // Return the last assistant message
+  return els[els.length - 1].innerText || '';
+}
+
+function isStillGenerating(waitSel) {
+  // If stop button exists, generation is in progress
+  return !!getElement(waitSel);
+}
+
+function setupObserver(targetSel, outputSel, waitSel) {
+  if (observer) observer.disconnect();
+  const target = getElement(targetSel) || document.body;
+  observer = new MutationObserver(() => {
+    const text = getLatestResponse(outputSel);
+    if (text && text !== lastResponse) {
+      lastResponse = text;
+    }
+    isGenerating = isStillGenerating(waitSel);
+  });
+  observer.observe(target, { childList: true, subtree: true });
+}
+
+/* ── Message listener ── */
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  switch (msg.action) {
+    case 'inject_prompt': {
+      const s = msg.selectors || {};
+      const inputSel = s.input || "div[id='prompt-textarea']";
+      const submitSel = s.submit || "button[data-testid='send-button']";
+      const outputSel = s.output || "div[data-message-author-role='assistant']";
+      const waitSel = s.wait_selector || "button[data-testid='stop-button']";
+      const observerTarget = s.observer_target || "div[class*='conversation']";
+
+      // Set input
+      const ok = setInput(msg.prompt, inputSel);
+      if (!ok) {
+        sendResponse({ status: 'error', text: 'Input field not found' });
+        return true;
+      }
+
+      // Click submit after a short delay to ensure text is inserted
+      setTimeout(() => {
+        clickSubmit(submitSel);
+        isGenerating = true;
+        lastResponse = '';
+        setupObserver(observerTarget, outputSel, waitSel);
+      }, 300);
+
+      sendResponse({ status: 'thinking' });
+      return true;
+    }
+
+    case 'poll_response': {
+      const s = msg.selectors || {};
+      const outputSel = s.output || "div[data-message-author-role='assistant']";
+      const waitSel = s.wait_selector || "button[data-testid='stop-button']";
+
+      const text = getLatestResponse(outputSel);
+      const generating = isStillGenerating(waitSel);
+
+      if (!generating && text) {
+        sendResponse({ status: 'done', text });
+      } else if (generating) {
+        sendResponse({ status: 'thinking', text: lastResponse });
+      } else {
+        sendResponse({ status: 'thinking' });
+      }
+      return true;
+    }
+
+    default:
+      sendResponse({ status: 'unknown' });
+      return true;
+  }
+});
