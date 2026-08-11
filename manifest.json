@@ -1,0 +1,62 @@
+{
+  "manifest_version": 3,
+  "name": "AI Consensus Engine — HiveMind Debate",
+  "short_name": "HiveMind",
+  "version": "1.0.0",
+  "description": "Multi-agent asynchronous debate loop that bypasses paid API limits by combining Web App automation and free API tiers into a parallel consensus engine.",
+  "author": "HiveMind AI",
+  "homepage_url": "https://github.com/hivemind-ai/consensus-engine",
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "AI Consensus Engine"
+  },
+  "background": {
+    "service_worker": "src/background.js",
+    "type": "module"
+  },
+  "permissions": [
+    "storage",
+    "activeTab",
+    "scripting",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://chatgpt.com/*",
+    "https://claude.ai/*",
+    "https://*.claude.ai/*",
+    "https://gemini.google.com/*",
+    "https://raw.githubusercontent.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://chatgpt.com/*"],
+      "js": ["src/content_scripts/chatgpt.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://claude.ai/*", "https://*.claude.ai/*"],
+      "js": ["src/content_scripts/claude.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    },
+    {
+      "matches": ["https://gemini.google.com/*"],
+      "js": ["src/content_scripts/gemini.js"],
+      "run_at": "document_end",
+      "all_frames": false
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["selectors.json"],
+      "matches": ["<all_urls>"]
+    }
+  ],
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "hivemind-consensus@hivemind.ai",
+      "strict_min_version": "109.0"
+    }
+  }
+}
