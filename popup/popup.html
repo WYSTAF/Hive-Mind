@@ -8,9 +8,25 @@
 </head>
 <body>
   <div id="app">
+    <!-- ── Brand row ── -->
+    <header id="brand-row">
+      <svg class="brand-mark" viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+        <polygon points="20.7,7 20.7,17 12,22 3.3,17 3.3,7 12,2" fill="#ffb300"/>
+        <circle cx="15.4" cy="8.4" r="2.1" fill="#12121f"/>
+      </svg>
+      <span class="brand-name">HiveMind</span>
+      <span class="brand-sub">Consensus Engine</span>
+      <span id="brand-dot" class="dot idle" title="Idle"></span>
+    </header>
+
     <!-- ── Top Section ── -->
     <section id="top-section">
-      <textarea id="user-prompt" placeholder="Enter your prompt for the AI debate panel…" rows="3"></textarea>
+      <textarea id="user-prompt" placeholder="Enter your prompt for the AI debate panel…  (Ctrl+Enter to launch)" rows="3"></textarea>
+      <div id="promptlib-row">
+        <select id="promptlib-select"><option value="">📚 Saved prompts…</option></select>
+        <button id="btn-save-prompt" title="Save the current prompt to your library">💾 Save</button>
+        <button id="btn-del-prompt" title="Delete the selected saved prompt">🗑</button>
+      </div>
 
       <details id="system-prompt-details">
         <summary>System Prompt</summary>
@@ -28,8 +44,8 @@
         </div>
 
         <div id="telegram-group">
-          <input id="tg-token" type="text" placeholder="Telegram Bot Token" />
-          <input id="tg-chat" type="text" placeholder="Chat ID" />
+          <input id="tg-token" type="password" placeholder="Telegram Bot Token" autocomplete="off" />
+          <input id="tg-chat" type="text" placeholder="Chat ID" autocomplete="off" />
         </div>
 
         <div id="theme-group">
@@ -45,82 +61,130 @@
       <div id="action-row">
         <button id="btn-start">🧠 Start Debate</button>
         <button id="btn-abort" disabled>✋ Abort</button>
-        <span id="timer-display">00:00 / 45s</span>
+        <label class="opt-toggle" title="Stop the debate early once panelists stop producing new arguments">
+          <input type="checkbox" id="opt-smart-stop" checked /> Smart Stop
+        </label>
+        <label class="opt-toggle" title="Have an independent API model anonymously rank closing arguments at the end">
+          <input type="checkbox" id="opt-blind-judge" checked /> Blind Judge
+        </label>
+        <label class="opt-toggle" title="On the final round, the lowest-scoring agent must argue AGAINST the majority before consensus lands">
+          <input type="checkbox" id="opt-devils-advocate" /> Devil's Advocate
+        </label>
+        <span id="status-text"></span>
+        <span id="timer-display">00:00</span>
       </div>
     </section>
 
-    <!-- ── Middle Section – Stacked Bar Chart ── -->
+    <!-- ── Middle Section – Stacked Bar Chart + Live Feed ── -->
     <section id="chart-section">
       <svg id="stacked-chart" viewBox="0 0 760 220" preserveAspectRatio="xMidYMid meet"></svg>
+      <div id="chart-tooltip" hidden></div>
+      <div id="chart-legend" hidden></div>
     </section>
 
-    <!-- ── Bottom Section – Agent Status Row ── -->
-    <section id="agents-section">
-      <div id="agent-row">
-        <!-- ChatGPT -->
-        <div class="agent-card" data-agent="chatgpt">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#10a37f" />
-              <text x="24" y="28" font-size="10" fill="white" text-anchor="middle" font-weight="bold">GPT</text>
-            </svg>
-          </div>
-          <span class="agent-label">ChatGPT</span>
+    <!-- ── Live Feed (during debates) ── -->
+    <details id="livefeed-details" open hidden>
+      <summary>Live Feed</summary>
+      <div id="live-feed" aria-live="polite"></div>
+    </details>
+
+    <!-- ── Sites drawer (which AI sites participate) ── -->
+    <details id="sites-details">
+      <summary>Sites <span class="drawer-hint">(which AI websites join the panel)</span></summary>
+      <div id="sites-body">
+        <div id="sites-list"></div>
+        <div id="add-site-row">
+          <input id="add-site-name" type="text" placeholder="Name (e.g. My AI)" maxlength="30" />
+          <input id="add-site-url" type="text" placeholder="https://example.com/chat" />
+          <button id="btn-add-site" title="Add this site as a debate panelist">＋ Add</button>
         </div>
-        <!-- Claude -->
-        <div class="agent-card" data-agent="claude">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#d97706" />
-              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">CLD</text>
-            </svg>
-          </div>
-          <span class="agent-label">Claude</span>
+        <span id="add-site-status"></span>
+      </div>
+    </details>
+
+    <!-- ── Selector Doctor (diagnostics) ── -->
+    <details id="diagnostics-details">
+      <summary>Selector Doctor <span class="drawer-hint">(probe every agent's selectors before debating)</span></summary>
+      <div id="diagnostics-body">
+        <button id="btn-run-diagnostics">🔍 Run Diagnostics</button>
+        <span id="diag-status"></span>
+        <div id="diagnostics-report"></div>
+      </div>
+    </details>
+
+    <!-- ── API Agents settings drawer ── -->
+    <details id="api-agents-details">
+      <summary>API Agents <span class="drawer-hint">(add free-tier models alongside the browser tabs)</span></summary>
+      <div id="api-agents-body">
+        <div class="api-agent-row" data-provider="openrouter">
+          <label class="api-toggle"><input type="checkbox" class="api-enabled" /> <strong>OpenRouter</strong></label>
+          <input class="api-key" type="password" placeholder="API key" autocomplete="off" />
+          <input class="api-model" type="text" placeholder="meta-llama/llama-3.3-70b-instruct:free" />
         </div>
-        <!-- Gemini -->
-        <div class="agent-card" data-agent="gemini">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#4285f4" />
-              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">GEM</text>
-            </svg>
-          </div>
-          <span class="agent-label">Gemini</span>
+        <div class="api-agent-row" data-provider="cloudflare">
+          <label class="api-toggle"><input type="checkbox" class="api-enabled" /> <strong>Cloudflare Workers AI</strong></label>
+          <input class="api-key" type="password" placeholder="API token" autocomplete="off" />
+          <input class="api-account" type="text" placeholder="Account ID" />
+          <input class="api-model" type="text" placeholder="@cf/meta/llama-3.1-8b-instruct" />
         </div>
-        <!-- OpenRouter -->
-        <div class="agent-card" data-agent="openrouter">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#6366f1" />
-              <text x="24" y="28" font-size="8" fill="white" text-anchor="middle" font-weight="bold">OR</text>
-            </svg>
-          </div>
-          <span class="agent-label">OpenRouter</span>
+        <div class="api-agent-row" data-provider="nvidia">
+          <label class="api-toggle"><input type="checkbox" class="api-enabled" /> <strong>Nvidia NIM</strong></label>
+          <input class="api-key" type="password" placeholder="nvapi-…" autocomplete="off" />
+          <input class="api-model" type="text" placeholder="meta/llama-3.1-8b-instruct" />
         </div>
-        <!-- Cloudflare -->
-        <div class="agent-card" data-agent="cloudflare">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#f38020" />
-              <text x="24" y="28" font-size="8" fill="white" text-anchor="middle" font-weight="bold">CF</text>
-            </svg>
-          </div>
-          <span class="agent-label">Cloudflare</span>
+        <div id="api-actions">
+          <button id="btn-save-api">💾 Save API Agents</button>
+          <span id="api-status"></span>
         </div>
-        <!-- Nvidia NIM -->
-        <div class="agent-card" data-agent="nvidia">
-          <div class="agent-ring">
-            <svg class="agent-logo" viewBox="0 0 48 48" width="40" height="40">
-              <circle cx="24" cy="24" r="20" fill="#76b900" />
-              <text x="24" y="28" font-size="9" fill="white" text-anchor="middle" font-weight="bold">NV</text>
-            </svg>
-          </div>
-          <span class="agent-label">Nvidia NIM</span>
+        <hr class="drawer-rule" />
+        <div id="custom-agents-list"></div>
+        <button id="btn-add-custom" title="Add any OpenAI-compatible endpoint as a panelist">＋ Add custom agent</button>
+      </div>
+      </div>
+    </details>
+
+    <!-- ── History drawer ── -->
+    <details id="history-details">
+      <summary>History &amp; Panel Stats</summary>
+      <div id="stats-summary"></div>
+      <div id="history-list"></div>
+      <div id="history-actions">
+        <button id="btn-export-jsonl" title="Download all debates as JSONL (OpenAI fine-tune format)">⬇ Export JSONL</button>
+        <button id="btn-clear-history">🗑 Clear history</button>
+      </div>
+    </details>
+
+    <!-- ── Consensus Panel ── -->
+    <section id="consensus-section" hidden>
+      <div id="consensus-header">
+        <h2>Consensus</h2>
+        <div id="consensus-actions">
+          <button id="btn-copy-consensus" title="Copy synthesis to clipboard">📋 Copy</button>
+          <button id="btn-export" title="Download the full debate as Markdown">⬇ Export .md</button>
+          <button id="btn-hide-consensus" title="Hide this panel">✕</button>
         </div>
       </div>
+      <div id="consensus-content"></div>
+      <div id="followup-row" hidden>
+        <input id="followup-input" type="text"
+          placeholder="Ask the winner a follow-up…" maxlength="500" />
+        <button id="btn-followup" title="Send to the debate's winning agent">Ask ➤</button>
+      </div>
+    </section>
+
+    <!-- ── Debate Transcript ── -->
+    <details id="transcript-details" hidden>
+      <summary>Debate Transcript</summary>
+      <div id="transcript-content"></div>
+    </details>
+
+    <!-- ── Bottom Section – Agent Status Row (rendered from site registry) ── -->
+    <section id="agents-section">
+      <div id="agent-row"></div>
     </section>
   </div>
 
-  <script src="popup.js"></script>
+  <script src="preview-stub.js"></script>
+  <script type="module" src="popup.js"></script>
 </body>
 </html>

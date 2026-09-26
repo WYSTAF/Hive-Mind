@@ -1,27 +1,105 @@
 {
+  "version": 2,
   "chatgpt": {
-    "input": "div[id='prompt-textarea']",
-    "submit": "button[data-testid='send-button']",
-    "output": "div[data-message-author-role='assistant']",
-    "wait_selector": "button[data-testid='stop-button']",
-    "observer_target": "div[class*='conversation']",
-    "timeout_ms": 45000
+    "input": [
+      "div[id='prompt-textarea']",
+      "form div[contenteditable='true']",
+      "#prompt-textarea"
+    ],
+    "submit": [
+      "button[data-testid='send-button']",
+      "button[aria-label='Send prompt']",
+      "form button[type='submit']",
+      "button[id='composer-submit-button']"
+    ],
+    "output": [
+      "div[data-message-author-role='assistant'] .markdown",
+      "div[data-message-author-role='assistant']"
+    ],
+    "wait_selector": [
+      "button[data-testid='stop-button']",
+      "button[aria-label='Stop streaming']"
+    ],
+    "error_patterns": [
+      "something went wrong",
+      "unable to load conversation",
+      "an error occurred",
+      "please try again"
+    ],
+    "rate_limit_patterns": [
+      "you've reached (?:our|the) limit",
+      "rate limit",
+      "too many requests",
+      "usage limit",
+      "try again in \\d+ hours?"
+    ]
   },
   "claude": {
-    "input": "div[contenteditable='true']",
-    "submit": "button[aria-label='Send Message']",
-    "output": "div.font-claude-message",
-    "wait_selector": "div.is-generating",
-    "observer_target": "main",
-    "timeout_ms": 45000
+    "input": [
+      "div[contenteditable='true'].ProseMirror",
+      "div[contenteditable='true']"
+    ],
+    "submit": [
+      "button[aria-label='Send Message']",
+      "button[aria-label='Send message']",
+      "button[data-testid='send-button']",
+      "button[type='submit']"
+    ],
+    "output": [
+      "div.font-claude-message",
+      "div[data-testid='assistant-message']",
+      "div[data-is-streaming] .font-claude-message"
+    ],
+    "wait_selector": [
+      "div.is-generating",
+      "button[aria-label='Stop Response']",
+      "button[aria-label='Interrupt']"
+    ],
+    "error_patterns": [
+      "unexpected error",
+      "something went wrong",
+      "internal server error",
+      "try again"
+    ],
+    "rate_limit_patterns": [
+      "message limit reached",
+      "usage limit",
+      "rate limit",
+      "conversation too long"
+    ]
   },
   "gemini": {
-    "input": "div[role='textbox']",
-    "submit": "button[aria-label='Send message']",
-    "output": "div.message-content",
-    "wait_selector": "mat-progress-bar",
-    "observer_target": "div[class*='response-container']",
-    "timeout_ms": 45000
+    "input": [
+      "div.ql-editor[role='textbox']",
+      "rich-textarea div[contenteditable='true']",
+      "div[role='textbox']"
+    ],
+    "submit": [
+      "button[aria-label='Send message']",
+      "button.send-button",
+      "button[mattooltip*='send' i]",
+      "button.submit"
+    ],
+    "output": [
+      "model-response .markdown",
+      "message-content .markdown",
+      "div.message-content",
+      "model-response"
+    ],
+    "wait_selector_visible": true,
+    "wait_selector": ["mat-progress-bar"],
+    "error_patterns": [
+      "an error occurred",
+      "something went wrong",
+      "couldn't generate",
+      "not available for this account"
+    ],
+    "rate_limit_patterns": [
+      "reached the limit",
+      "quota exceeded",
+      "rate limit",
+      "try again later"
+    ]
   },
   "bridge": {
     "ws_url": "ws://127.0.0.1:8765",

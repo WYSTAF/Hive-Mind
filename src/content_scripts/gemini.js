@@ -1,105 +1,47 @@
-/* ── Gemini Content Script ── */
+/* ── Gemini Content Script ──
+ * Site config only — all behavior lives in ../lib/agent_core.js.
+ * Selector arrays are fallbacks tried in order (see selectors.json).
+ */
+(function () {
+  'use strict';
 
-let lastResponse = '';
-let isGenerating = false;
-let observer = null;
+  const SITE = {
+    input: [
+      "div.ql-editor[role='textbox']",
+      "rich-textarea div[contenteditable='true']",
+      "div[role='textbox']"
+    ],
+    submit: [
+      "button[aria-label='Send message']",
+      "button.send-button",
+      "button[mattooltip*='Send' i]",
+      "button.submit"
+    ],
+    output: [
+      "model-response .markdown",
+      "message-content .markdown",
+      "div.message-content",
+      "model-response"
+    ],
+    // Gemini keeps the progress bar mounted after completion; only treat it
+    // as "generating" while it is actually visible.
+    wait_selector_visible: true,
+    wait_selector: ["mat-progress-bar"],
+    error_patterns: [
+      "an error occurred",
+      "something went wrong",
+      "couldn't generate",
+      "not available for this account"
+    ],
+    rate_limit_patterns: [
+      "reached the limit",
+      "quota exceeded",
+      "rate limit",
+      "try again later"
+    ]
+  };
 
-function getElement(sel) {
-  return document.querySelector(sel);
-}
-
-function getAllElements(sel) {
-  return Array.from(document.querySelectorAll(sel));
-}
-
-function setInput(text, sel) {
-  const el = getElement(sel);
-  if (!el) return false;
-  el.focus();
-  document.execCommand('insertText', false, text);
-  return true;
-}
-
-function clickSubmit(sel) {
-  const btn = getElement(sel);
-  if (btn) {
-    btn.click();
-    return true;
-  }
-  return false;
-}
-
-function getLatestResponse(sel) {
-  const els = getAllElements(sel);
-  if (!els.length) return '';
-  return els[els.length - 1].innerText || '';
-}
-
-function isStillGenerating(waitSel) {
-  return !!getElement(waitSel);
-}
-
-function setupObserver(targetSel, outputSel, waitSel) {
-  if (observer) observer.disconnect();
-  const target = getElement(targetSel) || document.body;
-  observer = new MutationObserver(() => {
-    const text = getLatestResponse(outputSel);
-    if (text && text !== lastResponse) {
-      lastResponse = text;
-    }
-    isGenerating = isStillGenerating(waitSel);
-  });
-  observer.observe(target, { childList: true, subtree: true });
-}
-
-/* ── Message listener ── */
-chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
-  switch (msg.action) {
-    case 'inject_prompt': {
-      const s = msg.selectors || {};
-      const inputSel = s.input || "div[role='textbox']";
-      const submitSel = s.submit || "button[aria-label='Send message']";
-      const outputSel = s.output || "div.message-content";
-      const waitSel = s.wait_selector || "mat-progress-bar";
-      const observerTarget = s.observer_target || "div[class*='response-container']";
-
-      const ok = setInput(msg.prompt, inputSel);
-      if (!ok) {
-        sendResponse({ status: 'error', text: 'Input field not found' });
-        return true;
-      }
-
-      setTimeout(() => {
-        clickSubmit(submitSel);
-        isGenerating = true;
-        lastResponse = '';
-        setupObserver(observerTarget, outputSel, waitSel);
-      }, 300);
-
-      sendResponse({ status: 'thinking' });
-      return true;
-    }
-
-    case 'poll_response': {
-      const s = msg.selectors || {};
-      const outputSel = s.output || "div.message-content";
-      const waitSel = s.wait_selector || "mat-progress-bar";
-
-      const text = getLatestResponse(outputSel);
-      const generating = isStillGenerating(waitSel);
-
-      if (!generating && text) {
-        sendResponse({ status: 'done', text });
-      } else if (generating) {
-        sendResponse({ status: 'thinking', text: lastResponse });
-      } else {
-        sendResponse({ status: 'thinking' });
-      }
-      return true;
-    }
-
-    default:
-      sendResponse({ status: 'unknown' });
-      return true;
-  }
-});
+  chrome.runtime.onMessage.addListener((msg, sender, sendResponse) =>
+    window.HiveAgentCore.handleMessage(msg, SITE, sendResponse)
+  );
+})();

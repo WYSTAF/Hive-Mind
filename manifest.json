@@ -2,13 +2,25 @@
   "manifest_version": 3,
   "name": "AI Consensus Engine — HiveMind Debate",
   "short_name": "HiveMind",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Multi-agent asynchronous debate loop that bypasses paid API limits by combining Web App automation and free API tiers into a parallel consensus engine.",
   "author": "HiveMind AI",
   "homepage_url": "https://github.com/hivemind-ai/consensus-engine",
   "action": {
     "default_popup": "popup/popup.html",
-    "default_title": "AI Consensus Engine"
+    "default_title": "AI Consensus Engine",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "background": {
     "service_worker": "src/background.js",
@@ -18,39 +30,47 @@
     "storage",
     "activeTab",
     "scripting",
-    "tabs"
+    "tabs",
+    "notifications",
+    "alarms"
   ],
   "host_permissions": [
     "https://chatgpt.com/*",
     "https://claude.ai/*",
     "https://*.claude.ai/*",
     "https://gemini.google.com/*",
-    "https://raw.githubusercontent.com/*"
+    "https://grok.com/*",
+    "https://chat.deepseek.com/*",
+    "https://www.perplexity.ai/*",
+    "https://copilot.microsoft.com/*",
+    "https://chat.mistral.ai/*",
+    "https://raw.githubusercontent.com/*",
+    "https://api.telegram.org/*",
+    "https://openrouter.ai/*",
+    "https://api.cloudflare.com/*",
+    "https://integrate.api.nvidia.com/*"
+  ],
+  "optional_host_permissions": [
+    "https://*/*"
   ],
   "content_scripts": [
     {
       "matches": ["https://chatgpt.com/*"],
-      "js": ["src/content_scripts/chatgpt.js"],
+      "js": ["src/lib/agent_core.js", "src/content_scripts/chatgpt.js"],
       "run_at": "document_end",
       "all_frames": false
     },
     {
       "matches": ["https://claude.ai/*", "https://*.claude.ai/*"],
-      "js": ["src/content_scripts/claude.js"],
+      "js": ["src/lib/agent_core.js", "src/content_scripts/claude.js"],
       "run_at": "document_end",
       "all_frames": false
     },
     {
       "matches": ["https://gemini.google.com/*"],
-      "js": ["src/content_scripts/gemini.js"],
+      "js": ["src/lib/agent_core.js", "src/content_scripts/gemini.js"],
       "run_at": "document_end",
       "all_frames": false
-    }
-  ],
-  "web_accessible_resources": [
-    {
-      "resources": ["selectors.json"],
-      "matches": ["<all_urls>"]
     }
   ],
   "browser_specific_settings": {
