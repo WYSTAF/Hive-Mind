@@ -5,7 +5,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 
-import { parseScore, wrapConversation, synthesizeConsensus, isRoundBarrierMet, truncateForPrompt } from '../src/lib/debate_logic.js';
+import { parseScore, wrapConversation, synthesizeConsensus, isRoundBarrierMet, truncateForPrompt, buildDevilsAdvocatePrompt } from '../src/lib/debate_logic.js';
 import { isValidSelectors } from '../src/lib/selectors.js';
 
 /* ═══ parseScore ═══ */
@@ -116,7 +116,7 @@ function makeDebate(rounds, agents = {}) {
 test('synthesizeConsensus: empty debate', () => {
   const s = synthesizeConsensus(makeDebate([], { chatgpt: { status: 'timeout' } }));
   assert.ok(s.includes('No responses received'));
-  assert.ok(s.includes('chatgpt (timeout)'));
+  assert.ok(s.includes('chatgpt (timed out)'), 'statuses read as plain language');
 });
 
 test('synthesizeConsensus: ranks highest last-round response', () => {
@@ -295,4 +295,17 @@ test('parseScore: realistic model formats all parse', () => {
   assert.equal(parseScore('I rate my response 7 out of 10.'), 7);
   assert.equal(parseScore('Overall quality: 9/10'), 9);
   assert.equal(parseScore('[Score:8]'), 8);
+});
+
+/* ═══ devil's advocate scoping ═══ */
+test('devil\'s advocate brief is a distinct prompt from the standard one', () => {
+  const xml = wrapConversation([{ round: 1, responses: { a: { text: 'claim', score: 5 } } }]);
+  const adv = buildDevilsAdvocatePrompt('Q?', xml);
+  const standard = `Q?\n\nReview the previous arguments:\n${xml}\n\n` +
+    'Provide your updated argument and score in the format [Score: X/10]. Do not repeat your own previous arguments.';
+  // background.js sends the adversary prompt to the adversary ONLY; if these
+  // were the same string the whole panel would attack the majority.
+  assert.notEqual(adv, standard);
+  assert.match(adv, /DEVIL'S ADVOCATE/);
+  assert.ok(!/DEVIL'S ADVOCATE/.test(standard), 'standard prompt stays non-contrarian');
 });

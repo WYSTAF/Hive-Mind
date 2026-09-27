@@ -355,7 +355,8 @@ async function refreshRoster() {
 /* ── Agent card status ── */
 const STATUS_LABELS = {
   thinking: '', done: '', 'rate-limited': 'limited', timeout: 'timeout',
-  'missing-tab': 'no tab', error: 'error', idle: 'idle', 'quota-hold': 'quota'
+  'missing-tab': 'no tab', error: 'error', idle: 'idle', 'quota-hold': 'quota',
+  'tab-closed': 'tab closed'
 };
 const DISPLAY_NAMES = {
   chatgpt: 'ChatGPT', claude: 'Claude', gemini: 'Gemini',
@@ -710,6 +711,10 @@ browserAPI.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       updateRoundDots(0);
       statusText.textContent = 'Stopped';
       break;
+    case 'storage_warning':
+      statusText.textContent = msg.message || 'Storage full — history trimmed';
+      setTimeout(() => { statusText.textContent = ''; }, 5000);
+      break;
   }
   sendResponse({ ok: true });
   return true;
@@ -831,6 +836,12 @@ async function runDiagnosticsUi() {
         const bad = Object.entries(info.report || {}).filter(([, v]) => v.ok === false);
         head.textContent = `${agentDisplayName(name)} — ${bad.length ? `${bad.length} selector group(s) failing` : 'all selectors ✓'}`;
         head.classList.add(bad.length ? 'warn' : 'ok');
+        if (Array.isArray(info.otherTabs) && info.otherTabs.length) {
+          const note = document.createElement('div');
+          note.className = 'diag-line dim';
+          note.textContent = `  ${info.otherTabs.length} other tab(s) open — using the most recent`;
+          card.appendChild(note);
+        }
         // Per-array detail
         Object.entries(info.report).forEach(([arr, v]) => {
           if (arr === 'outputSample') return;

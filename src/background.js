@@ -204,7 +204,20 @@ async function restoreHistory() {
 }
 
 function persistHistory() {
-  browserAPI.storage.local.set({ debateHistory: debateHistory.slice(0, HISTORY_LIMIT) }).catch(() => {});
+  browserAPI.storage.local
+    .set({ debateHistory: debateHistory.slice(0, HISTORY_LIMIT) })
+    .catch(err => {
+      // Most likely a quota error. Don't lose everything to it: drop the
+      // oldest half and retry once, then tell the user if it still fails.
+      console.warn('[HiveMind] History save failed, trimming:', err && err.message);
+      debateHistory = debateHistory.slice(0, Math.floor(HISTORY_LIMIT / 2));
+      return browserAPI.storage.local
+        .set({ debateHistory })
+        .catch(err2 => {
+          console.error('[HiveMind] History still not saved:', err2 && err2.message);
+          notifyPopup('storage_warning', { message: 'Debate history could not be saved (storage full). Older entries were dropped.' });
+        });
+    });
 }
 
 function buildAgentList() {
@@ -284,14 +297,35 @@ function urlToAgent(url) {
   return site ? site.id : null;
 }
 
+// Sites with more than one open tab, populated by findAgentTabs() and
+// surfaced in diagnostics so nothing is silently ignored.
+let duplicateTabs = {};
+
 async function findAgentTabs() {
   const tabs = await browserAPI.tabs.query({});
-  const agents = {};
+  const candidates = {};   // agent -> [tab]
   for (const tab of tabs) {
     const agent = urlToAgent(tab.url);
-    // First hit wins — query() order makes "last write" arbitrary when
-    // several tabs match the same site.
-    if (agent && agents[agent] === undefined) agents[agent] = tab.id;
+    if (agent) (candidates[agent] ||= []).push(tab);
+  }
+  const agents = {};
+  duplicateTabs = {};
+  for (const [agent, list] of Object.entries(candidates)) {
+    // Prefer the most recently active tab: when a user has several tabs for
+    // the same site, the one they were last looking at is almost certainly
+    // the one they want debated in. Deprioritize login pages — a logged-out
+    // tab can't be automated usefully.
+    const score = t => {
+      let s = t.lastAccessed || 0;
+      if (/\/auth\/|\/login|\/signin|accounts\./i.test(t.url || '')) s -= 1e12;
+      if (t.active) s += 1e9;
+      return s;
+    };
+    list.sort((a, b) => score(b) - score(a));
+    agents[agent] = list[0].id;
+    if (list.length > 1) {
+      duplicateTabs[agent] = list.slice(1).map(t => ({ id: t.id, url: t.url }));
+    }
   }
   return agents;
 }
@@ -877,10 +911,14 @@ async function runDebate(opts) {
             debate.adversary = adversary;
             notifyPopup('agent_update', { agent: adversary, status: 'adversary' });
           }
-          const critiquePrompt = adversary
+          // The contrarian brief goes ONLY to the adversary; everyone else
+          // gets the normal cross-critique prompt. Sending it to the whole
+          // panel would invert the debate instead of stress-testing it.
+          const standardPrompt = `${prompt}\n\nReview the previous arguments:\n${conversationXml}\n\n` +
+            'Provide your updated argument and score in the format [Score: X/10]. Do not repeat your own previous arguments.';
+          const adversaryPrompt = adversary
             ? buildDevilsAdvocatePrompt(prompt, conversationXml)
-            : `${prompt}\n\nReview the previous arguments:\n${conversationXml}\n\n` +
-              'Provide your updated argument and score in the format [Score: X/10]. Do not repeat your own previous arguments.';
+            : null;
           await Promise.allSettled(agentList.map(async a => {
             const s = debate.agents[a];
             const participates = s.kind === 'api'
@@ -894,8 +932,9 @@ async function runDebate(opts) {
             s.score = 0;
             s.status = 'thinking';
             notifyPopup('agent_update', { agent: a, status: 'thinking' });
-            if (s.kind === 'api') launchApiRound(debate, s, a, critiquePrompt);
-            else await injectToAgent(s, a, critiquePrompt);
+            const roundPrompt = a === adversary ? adversaryPrompt : standardPrompt;
+            if (s.kind === 'api') launchApiRound(debate, s, a, roundPrompt);
+            else await injectToAgent(s, a, roundPrompt);
           }));
           if (signal.aborted || debate.finalized || currentDebate !== debate) return;
 
@@ -916,10 +955,17 @@ async function runDebate(opts) {
 
         const result = await sendToTab(s.tabId, 'poll_response', {});
         if (result === null) {
-          s.status = 'unreachable';
+          // Distinguish "tab was closed" from "page reloaded / script died" —
+          // both look like a missing receiver, but the user's fix differs.
+          let closed = false;
+          try {
+            const t = await browserAPI.tabs.get(s.tabId);
+            closed = !t;
+          } catch { closed = true; } // get() throws for a removed tab
+          s.status = closed ? 'tab-closed' : 'unreachable';
           s.completed = true;
           s.timedOut = true;
-          notifyPopup('agent_update', { agent: a, status: 'error' });
+          notifyPopup('agent_update', { agent: a, status: closed ? 'tab-closed' : 'error' });
           return;
         }
 
@@ -999,10 +1045,13 @@ async function runDebate(opts) {
               debate.adversary = adversary;
               notifyPopup('agent_update', { agent: adversary, status: 'adversary' });
             }
-            const critiquePrompt = adversary
+            // Contrarian brief goes ONLY to the adversary; the rest of the
+            // panel continues normal cross-critique.
+            const standardPrompt = `${prompt}\n\nReview the previous arguments:\n${conversationXml}\n\n` +
+              'Provide your updated argument and score in the format [Score: X/10]. Do not repeat your own previous arguments.';
+            const adversaryPrompt = adversary
               ? buildDevilsAdvocatePrompt(prompt, conversationXml)
-              : `${prompt}\n\nReview the previous arguments:\n${conversationXml}\n\n` +
-                'Provide your updated argument and score in the format [Score: X/10]. Do not repeat your own previous arguments.';
+              : null;
 
             await Promise.allSettled(agentList.map(async a => {
               const s = debate.agents[a];
@@ -1019,8 +1068,9 @@ async function runDebate(opts) {
               s.score = 0;
               s.status = 'thinking';
               notifyPopup('agent_update', { agent: a, status: 'thinking' });
-              if (s.kind === 'api') launchApiRound(debate, s, a, critiquePrompt);
-              else await injectToAgent(s, a, critiquePrompt);
+              const roundPrompt = a === adversary ? adversaryPrompt : standardPrompt;
+              if (s.kind === 'api') launchApiRound(debate, s, a, roundPrompt);
+              else await injectToAgent(s, a, roundPrompt);
             }));
             // An abort during the re-inject loop must not arm a fresh round
             // window on an already-finalized debate.
@@ -1189,6 +1239,10 @@ async function runDiagnostics() {
       kind: 'tab',
       present: true,
       reachable: !!res,
+      // If the user has several tabs for this site, say so — only the most
+      // recently active one is used, and silently ignoring the rest would
+      // be confusing when a debate looks like it "picked the wrong chat".
+      otherTabs: (duplicateTabs[a] || []).map(t => t.url),
       report: res ? res.report : null
     };
   }));
@@ -1270,12 +1324,29 @@ async function addCustomSite(msg) {
   return { ok: true, id, sites: activeSites.map(s => s.id) };
 }
 
+/**
+ * Retire an agent that just left the panel while a debate is running.
+ * Marks it settled so the round barrier isn't held open by an agent the user
+ * switched off, and tells its tab to stop generating.
+ */
+function retireAgentIfDebating(id) {
+  const s = currentDebate && !currentDebate.finalized ? currentDebate.agents[id] : null;
+  if (!s || s.completed || s.timedOut) return false;
+  if (s.tabId) sendToTab(s.tabId, 'cancel', {}).catch(() => {});
+  s.status = 'disabled';
+  s.completed = true;
+  s.timedOut = true;
+  notifyPopup('agent_update', { agent: id, status: 'error' });
+  return true;
+}
+
 async function removeCustomSite(siteId) {
   const id = String(siteId || '');
   userSites = userSites.filter(s => s.id !== id);
   enabledLazySites = enabledLazySites.filter(x => x !== id);
   await browserAPI.storage.local.set({ userSites, enabledLazySites });
   activeSites = mergeSites(BUILTIN_SITES, userSites).filter(s => isSiteEnabled(s, enabledLazySites));
+  retireAgentIfDebating(id);
   await registerSiteScripts(activeSites);
   return { ok: true, sites: activeSites.map(s => s.id) };
 }
@@ -1432,6 +1503,12 @@ browserAPI.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       enabledLazySites = next;
       browserAPI.storage.local.set({ enabledLazySites: next }).catch(() => {});
       activeSites = mergeSites(BUILTIN_SITES, userSites).filter(s => isSiteEnabled(s, next));
+
+      // Retiring a site that is mid-debate: mark it settled so the round
+      // barrier isn't held open by an agent the user just switched off, and
+      // tell its tab to stop generating.
+      if (!on) retireAgentIfDebating(id);
+
       registerSiteScripts(activeSites)
         .then(() => sendResponse({ ok: true, sites: activeSites.map(s => s.id) }),
               err => sendResponse({ ok: false, error: String(err && err.message || err) }));
