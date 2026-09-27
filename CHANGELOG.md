@@ -24,6 +24,19 @@
   rapid saves never clobber each other.
 
 ### Fixed
+- **Devil's Advocate inverted the whole panel**: the contrarian brief was sent
+  to *every* agent, so on the final round the entire panel attacked the
+  majority position instead of one agent stress-testing it. The brief now
+  goes only to the chosen adversary; the rest continue normal critique.
+- **Disabling a site mid-debate** left it polling until the round timed out;
+  it is now retired immediately (tab told to stop generating, barrier freed).
+- **A stream that died mid-answer was re-requested**, double-billing that
+  round. `askStream()` now keeps whatever arrived instead of retrying.
+- **A closed tab** was reported as a generic error; it is now distinguished
+  from a dead content script, and agent statuses read as plain language in
+  the synthesis ("tab was closed", "turned off mid-debate").
+- **History saves failed silently** on a storage quota error; they now trim
+  the oldest half, retry once, and warn the user if it still fails.
 - **Score gaming**: a model writing `[Score: 20/10]` was clamped to a perfect
   10 and could win the debate outright. Inflated claims (numerator above its
   own denominator), negative claims, and absurd denominators are now discarded;

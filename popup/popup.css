@@ -268,6 +268,9 @@ summary:hover{filter:brightness(1.12)}
 .agent-card.status-rate-limited .agent-ring::after,.agent-card.status-timeout .agent-ring::after,.agent-card.status-error .agent-ring::after{border-color:var(--bad);animation:none}
 /* Status: quota-hold – amber hold */
 .agent-card.status-quota-hold{opacity:.5}
+/* Tab closed mid-debate: dimmed like other failures, distinct ring tone */
+.agent-card.status-tab-closed{opacity:.4}
+.agent-card.status-tab-closed .agent-ring::after{border-color:#94a3b8;animation:none;border-style:dashed}
 .agent-card.status-quota-hold .agent-ring::after{border-color:var(--warn);animation:pulse 1.8s ease-in-out infinite}
 /* Status: adversary – violet pulse (devil's advocate this round) */
 .agent-card.status-adversary .agent-ring::after{border-color:var(--adv);animation:pulse 1.2s ease-in-out infinite}

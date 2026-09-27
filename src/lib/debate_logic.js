@@ -49,6 +49,19 @@ function clampScore(n) {
   return Math.min(Math.max(n, 0), 10);
 }
 
+// Human-readable agent status, for the synthesis report.
+const STATUS_PHRASES = {
+  'tab-closed': 'tab was closed',
+  'missing-tab': 'no tab open',
+  timeout: 'timed out',
+  'rate-limited': 'rate limited',
+  'quota-hold': 'held by API budget',
+  unreachable: 'tab unreachable',
+  disabled: 'turned off mid-debate',
+  error: 'errored',
+  thinking: 'still thinking'
+};
+
 export function truncateForPrompt(text, max = MAX_AGENT_TEXT_CHARS) {
   const t = String(text || '');
   if (t.length <= max) return t;
@@ -116,7 +129,7 @@ export function synthesizeConsensus(debate) {
   if (!debate.rounds.length) {
     const dead = Object.entries(debate.agents || {})
       .filter(([, a]) => a.status !== 'done')
-      .map(([name, a]) => `${name} (${a.status})`);
+      .map(([name, a]) => `${name} (${STATUS_PHRASES[a.status] || a.status})`);
     return dead.length
       ? `No responses received. Unavailable agents: ${dead.join(', ')}.`
       : 'No responses received.';

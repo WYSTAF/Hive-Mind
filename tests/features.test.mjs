@@ -315,3 +315,36 @@ test('judge prompt stays small at panel scale', async () => {
   const content = buildJudgeMessages('Q?', entries)[1].content;
   assert.ok(content.length < 24000, `8-agent judge prompt too large: ${content.length}`);
 });
+
+/* ═══ convergence: false-positive guard ═══ */
+test('detectConvergence: an echo chamber alongside one dissenting agent still counts as converged', () => {
+  // Two panelists echo each other; a third genuinely diverges. The panel is
+  // stuck — continuing just re-runs the same two positions.
+  const rounds = [
+    { round: 1, responses: {
+      a: { text: 'The only factor that matters is total cost across the full horizon.', score: 7 },
+      b: { text: 'The only factor that matters is total cost across the full horizon.', score: 7 },
+      c: { text: 'Reliability and grid stability dominate; cost is secondary to uptime.', score: 6 } } },
+    { round: 2, responses: {
+      a: { text: 'The only factor that matters is total cost across the full horizon.', score: 7 },
+      b: { text: 'The only factor that matters is total cost across the full horizon.', score: 7 },
+      c: { text: 'Reliability and grid stability dominate; cost is secondary to uptime.', score: 6 } } }
+  ];
+  const r = detectConvergence(rounds);
+  assert.equal(r.converged, true);
+});
+
+test('detectConvergence: three genuinely different arguments do NOT converge', () => {
+  const rounds = [
+    { round: 1, responses: {
+      a: { text: 'Solar plus storage is cheapest per megawatt hour today.', score: 7 },
+      b: { text: 'Fission remains the densest reliable baseload available.', score: 7 },
+      c: { text: 'Demand reduction beats any single generation build-out.', score: 7 } } },
+    { round: 2, responses: {
+      a: { text: 'Storage costs fell sharply, making solar-plus-storage viable now.', score: 8 },
+      b: { text: 'Fission remains the densest reliable baseload we can build.', score: 7 },
+      c: { text: 'Efficiency and demand response undercut all generation options.', score: 7 } } }
+  ];
+  const r = detectConvergence(rounds);
+  assert.equal(r.converged, false);
+});

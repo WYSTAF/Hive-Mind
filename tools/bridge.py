@@ -13,8 +13,10 @@ Runs an HTTP/WebSocket server that:
 Configuration via environment variables:
     HIVEMIND_HTTP_HOST / HIVEMIND_HTTP_PORT   (default 127.0.0.1:3000)
     HIVEMIND_WS_HOST   / HIVEMIND_WS_PORT     (default 127.0.0.1:8765)
-    HIVEMIND_DEBATE_TIMEOUT                   (default 160s; a full 3-round
-                                              debate runs 3 x 45s windows)
+    HIVEMIND_DEBATE_TIMEOUT                   (default 240s; a full 3-round
+                                              debate runs 3 x 45s round windows
+                                              plus a hard ceiling, blind-judge
+                                              time, and inject overhead)
 
 Usage:
     pip install fastapi uvicorn websockets
@@ -45,7 +47,7 @@ HTTP_HOST = os.environ.get("HIVEMIND_HTTP_HOST", "127.0.0.1")
 HTTP_PORT = int(os.environ.get("HIVEMIND_HTTP_PORT", "3000"))
 WS_HOST = os.environ.get("HIVEMIND_WS_HOST", "127.0.0.1")
 WS_PORT = int(os.environ.get("HIVEMIND_WS_PORT", "8765"))
-DEBATE_TIMEOUT = float(os.environ.get("HIVEMIND_DEBATE_TIMEOUT", "160"))
+DEBATE_TIMEOUT = float(os.environ.get("HIVEMIND_DEBATE_TIMEOUT", "240"))
 # Optional shared secret: when set, WS clients must connect as
 # ws://host:port/?token=<value>. Anything on the machine can otherwise
 # commandeer the panel (drive the user's logged-in chat tabs).

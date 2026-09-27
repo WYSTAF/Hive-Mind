@@ -157,3 +157,64 @@ test('extractText: failure payloads return null', () => {
 test('extractText: empty-string content treated as no-answer', () => {
   assert.equal(extractText('nvidia', { choices: [{ message: { content: '   ' } }] }), null);
 });
+
+/* ═══ streaming: no double-billing on partial streams ═══ */
+test('askStream: a stream that dies mid-answer is NOT retried', async () => {
+  const { ApiAgentClient } = await import('../src/lib/api_agents.js');
+  const cfg = { openrouter: { enabled: true, key: 'k', model: 'm' } };
+  const client = new ApiAgentClient(name => cfg[name]);
+  let calls = 0;
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    calls++;
+    const enc = new TextEncoder();
+    return {
+      ok: true, status: 200,
+      body: {
+        getReader: () => {
+          let stage = 0;
+          return {
+            read: async () => {
+              if (stage === 0) {
+                stage = 1;
+                return { done: false, value: enc.encode('data: {"choices":[{"delta":{"content":"partial answer"}}]}\n\n') };
+              }
+              throw new Error('connection reset mid-stream');
+            }
+          };
+        }
+      }
+    };
+  };
+  try {
+    const deltas = [];
+    const res = await client.askStream('openrouter', [{ role: 'user', content: 'q' }], d => deltas.push(d));
+    assert.equal(calls, 1, 'must not issue a second request after receiving text');
+    assert.equal(res.status, 'done');
+    assert.ok(res.text.includes('partial answer'), 'keeps what did arrive');
+  } finally {
+    globalThis.fetch = orig;
+  }
+});
+
+test('askStream: a stream that yields nothing falls back to a plain request', async () => {
+  const { ApiAgentClient } = await import('../src/lib/api_agents.js');
+  const cfg = { openrouter: { enabled: true, key: 'k', model: 'm' } };
+  const client = new ApiAgentClient(name => cfg[name]);
+  let calls = 0;
+  const orig = globalThis.fetch;
+  globalThis.fetch = async (url, init) => {
+    calls++;
+    if (calls === 1) {
+      return { ok: true, status: 200, body: { getReader: () => ({ read: async () => ({ done: true }) }) } };
+    }
+    return { ok: true, status: 200, json: async () => ({ choices: [{ message: { content: 'plain answer' } }] }) };
+  };
+  try {
+    const res = await client.askStream('openrouter', [{ role: 'user', content: 'q' }], () => {});
+    assert.equal(calls, 2, 'falls back exactly once when nothing streamed');
+    assert.equal(res.text, 'plain answer');
+  } finally {
+    globalThis.fetch = orig;
+  }
+});

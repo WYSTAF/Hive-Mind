@@ -274,13 +274,17 @@ export class ApiAgentClient {
     const cfg = this._configFor(name) ?? {};
     const streamReq = buildChatRequest(name, cfg, messages, { stream: true });
     if (streamReq && typeof onDelta === 'function') {
+      // Received text is tracked outside the try: if the stream dies after
+      // emitting tokens, we must NOT issue a second request — the provider has
+      // already billed a full generation, and a retry would double both the
+      // cost and the latency for this round.
+      let received = '';
       try {
         const resp = await fetch(streamReq.url, streamReq.init);
         if (resp.ok && resp.body) {
           const parser = new SSEBufferParser();
           const reader = resp.body.getReader();
           const decoder = new TextDecoder();
-          let full = '';
           for (;;) {
             const { value, done } = await reader.read();
             if (done) break;
@@ -288,16 +292,21 @@ export class ApiAgentClient {
               try {
                 const delta = extractStreamDelta(name, JSON.parse(payload));
                 if (delta) {
-                  full += delta;
+                  received += delta;
                   onDelta(delta);
                 }
               } catch { /* skip malformed event */ }
             }
           }
-          if (full.trim()) return { status: 'done', text: full.trim() };
-          // Stream produced nothing usable — fall through to non-stream.
+          if (received.trim()) return { status: 'done', text: received.trim() };
+          // Stream produced nothing usable — safe to fall through.
         }
-      } catch { /* fall through to non-stream attempt */ }
+      } catch (e) {
+        if (received.trim()) {
+          return { status: 'done', text: received.trim() };
+        }
+        // Nothing received yet — a clean non-stream retry is still free.
+      }
     }
     return this.ask(name, messages);
   }
